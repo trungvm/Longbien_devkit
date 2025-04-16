@@ -747,6 +747,9 @@ int main(int argc, char** argv)
 
                 for (int iterCount = 0; iterCount < 20; iterCount++) {
                     num_temp++;
+
+                    static float last_yaw = 0;
+
                     laserCloudOri->clear();
                     coeffSel->clear();
                     for (int i = 0; i < laserCloudCornerLast->points.size(); i++) {
@@ -931,6 +934,49 @@ int main(int argc, char** argv)
                     float cry = cos(transformTobeMapped[1]);
                     float srz = sin(transformTobeMapped[2]);
                     float crz = cos(transformTobeMapped[2]);
+
+                    // Yaw constraint
+                    float yaw_now = transformTobeMapped[2];
+                    float yaw_change = fabs(yaw_now - last_yaw);
+                    if (yaw_change > M_PI) yaw_change = 2 * M_PI - yaw_change;
+
+                    if (yaw_change < deg2rad(20.0)) {
+                        PointType dummy_point;
+                        dummy_point.x = 0;
+                        dummy_point.y = 0;
+                        dummy_point.z = 0;
+                        dummy_point.intensity = 0;
+
+                        PointType yaw_constraint;
+                        yaw_constraint.x = 0;
+                        yaw_constraint.y = 0;
+                        yaw_constraint.z = 1.0; // yaw axis
+                        yaw_constraint.intensity = transformTobeMapped[2];
+
+                        laserCloudOri->push_back(dummy_point);
+                        coeffSel->push_back(yaw_constraint);
+                    }
+                    last_yaw = yaw_now;
+
+                    // Ground constraint
+                    float ground_z = 1.2;
+                    PointType ground_point;
+                    ground_point.x = 0;
+                    ground_point.y = 0;
+                    ground_point.z = 0;
+                    ground_point.intensity = 0;
+
+                    PointType ground_constraint;
+                    ground_constraint.x = 0.0;
+                    ground_constraint.y = 0.0;
+                    ground_constraint.z = 1.0;  
+
+                    float weight_ground = 0.1;  
+
+                    ground_constraint.intensity = (transformTobeMapped[5] - ground_z) * weight_ground;
+
+                    laserCloudOri->push_back(ground_point);
+                    coeffSel->push_back(ground_constraint);
 
                     int laserCloudSelNum = laserCloudOri->points.size();
                     if (laserCloudSelNum < 50) {
